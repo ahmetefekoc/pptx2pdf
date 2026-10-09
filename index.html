@@ -44,9 +44,9 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
     <div>
       <label for="q" style="display:block;font-weight:600;margin-bottom:6px">Kalite</label>
       <select id="q">
-        <option value="2">Standart</option>
-        <option value="3" selected>Yüksek</option>
-        <option value="4">Maksimum</option>
+        <option value="1.5,0.8">Küçük dosya</option>
+        <option value="2,0.85" selected>Dengeli</option>
+        <option value="3,0.92">Maksimum</option>
       </select>
     </div>
     <button id="go" disabled>PDF oluştur</button>
@@ -134,13 +134,13 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
   }
 
   async function exportImage(){
-    var q=parseFloat($('#q').value),pdf=null,hasFont=false;
+    var qv=$('#q').value.split(','),q=parseFloat(qv[0]),jq=parseFloat(qv[1]),pdf=null,hasFont=false;
     await fullSize(async function(){
       for(var i=0;i<slides.length;i++){
         var el=slides[i],w=el.offsetWidth,h=el.offsetHeight,o=w>=h?'l':'p',W=w*0.75,H=h*0.75;
         say((i+1)+' / '+slides.length);progress(i/slides.length);
         var c=await html2canvas(el,{scale:q,backgroundColor:'#ffffff',useCORS:true,logging:false});
-        var img=c.toDataURL('image/jpeg',0.92);
+        var img=c.toDataURL('image/jpeg',jq);
         if(!pdf){
           pdf=new window.jspdf.jsPDF({orientation:o,unit:'pt',format:[W,H]});
           try{pdf.addFileToVFS('t.ttf',window.TEXT_FONT_B64);pdf.addFont('t.ttf','T','normal');hasFont=true}catch(e){console.error(e)}
@@ -153,6 +153,7 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
     });
     progress(1);pdf.save(baseName+'.pdf');say('Hazır');
   }
+
 
   go.addEventListener('click',async function(){
     if(busy||!slides.length)return;
