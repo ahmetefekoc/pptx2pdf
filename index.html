@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PPTX → PDF · Kaymadan</title>
+<style>
+:root{--bg:#edf0ec;--ink:#17211c;--mute:#5c6a62;--line:#c4cec7;--accent:#0e6b5c;--accent-ink:#fff;--card:#fafbfa;--warn:#9a3412}
+@media (prefers-color-scheme:dark){:root{--bg:#121916;--ink:#e6ece8;--mute:#93a39a;--line:#2f3d36;--accent:#3fb59f;--accent-ink:#06201a;--card:#192220;--warn:#f0a070}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:980px;margin:0 auto;padding:48px 20px 64px}
+h1{font:600 clamp(2rem,5vw,3.2rem)/1.1 "Iowan Old Style","Palatino Linotype",Georgia,serif;margin:0 0 12px;letter-spacing:-.01em}
+.lead{max-width:60ch;color:var(--mute);margin:0 0 32px}
+#drop{display:block;border:2px dashed var(--line);border-radius:6px;background:var(--card);padding:36px 24px;cursor:pointer;transition:border-color .15s,background .15s}
+#drop:hover,#drop.over,#drop:focus-within{border-color:var(--accent)}
+#drop strong{display:block;font-size:1.1rem}
+#drop span{color:var(--mute)}
+#file{position:absolute;opacity:0;width:1px;height:1px}
+.row{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;margin:24px 0}
+fieldset{border:0;padding:0;margin:0}
+legend{font-weight:600;margin-bottom:6px;padding:0}
+label.opt{display:flex;gap:8px;align-items:baseline;margin:2px 0;cursor:pointer}
+select{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+button{font:inherit;font-weight:600;border:0;border-radius:4px;padding:11px 20px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px solid var(--accent);outline-offset:2px}
+#status{min-height:1.6em;margin:0 0 8px;color:var(--mute)}
+#status.err{color:var(--warn)}
+#bar{height:4px;background:var(--line);border-radius:2px;overflow:hidden;visibility:hidden}
+#bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+.note{font-size:.9rem;color:var(--mute);max-width:70ch;margin-top:28px}
+#viewport{margin-top:20px;overflow:hidden}
+#stage{width:1600px;transform-origin:0 0}
+#stage .pptx-preview-wrapper{background:transparent!important}
+#stage .pptx-preview-slide-wrapper{box-shadow:0 1px 8px rgba(0,0,0,.18)}
+@media print{
+ main>*:not(#viewport){display:none!important}
+ html,body{background:#fff}
+ main{padding:0;max-width:none}
+ #viewport{margin:0;height:auto!important;overflow:visible!important}
+ #stage{transform:none!important}
+ #stage .pptx-preview-slide-wrapper{margin:0!important;box-shadow:none;break-after:page;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+ #stage .pptx-preview-slide-wrapper:last-child{break-after:auto;page-break-after:auto}
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>PPTX’i PDF’e çevir, yazılar yerinde kalsın</h1>
+  <p class="lead">Slaytlar tarayıcında çizilir ve olduğu gibi PDF’e aktarılır. Dosyan hiçbir sunucuya yüklenmez.</p>
+
+  <label id="drop" for="file">
+    <input id="file" type="file" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+    <strong id="dropTitle">.pptx dosyasını buraya bırak ya da seç</strong>
+    <span id="dropSub">Eski .ppt biçimi desteklenmez; PowerPoint’te “Farklı kaydet → .pptx” yap.</span>
+  </label>
+
+  <div class="row">
+    <fieldset>
+      <legend>PDF türü</legend>
+      <label class="opt"><input type="radio" name="mode" value="image" checked> Görüntü: slayt ekrandaki gibi çıkar, yazı seçilemez</label>
+      <label class="opt"><input type="radio" name="mode" value="print"> Metin: yazı seçilebilir, tarayıcının yazdır penceresi açılır</label>
+    </fieldset>
+    <div>
+      <label for="q" style="display:block;font-weight:600;margin-bottom:6px">Görüntü kalitesi</label>
+      <select id="q">
+        <option value="1.5">Standart</option>
+        <option value="2" selected>Yüksek</option>
+        <option value="3">Çok yüksek (büyük dosya)</option>
+      </select>
+    </div>
+    <button id="go" disabled>PDF oluştur</button>
+  </div>
+
+  <p id="status" role="status" aria-live="polite"></p>
+  <div id="bar"><i></i></div>
+
+  <div id="viewport"><div id="stage"></div></div>
+
+  <p class="note">Kayma çoğunlukla sunumda kullanılan yazı tipinin bilgisayarında yüklü olmamasından olur (ör. Calibri, Segoe UI). Tarayıcı eksik yazı tipi yerine başka bir tane koyarsa satırlar kayar. Önizlemede bir kayma görürsen önce o yazı tipini kur, sonra tekrar yükle. “Metin” türünde yazdır penceresinde hedefi “PDF olarak kaydet”, kenar boşluklarını “Yok”, ölçeği %100 seç.</p>
+</main>
+
+<script src="vendor/pptx-preview.umd.js"></script>
+<script src="vendor/html2canvas.min.js"></script>
+<script src="vendor/jspdf.umd.min.js"></script>
+<script>
+(function(){
+  var RENDER_W = 1600;
+  var $ = function(s){return document.querySelector(s)};
+  var stage=$('#stage'), vp=$('#viewport'), go=$('#go'), statusEl=$('#status'), bar=$('#bar'), barFill=$('#bar i');
+  var slides=[], baseName='sunum', busy=false, pageStyle=null;
+
+  function say(t,err){statusEl.textContent=t;statusEl.className=err?'err':''}
+  function progress(p){bar.style.visibility=p==null?'hidden':'visible';barFill.style.width=(p||0)*100+'%'}
+  function fit(){
+    var k=Math.min(1,vp.clientWidth/RENDER_W);
+    stage.style.transform='scale('+k+')';
+    vp.style.height=(stage.scrollHeight*k)+'px';
+  }
+  window.addEventListener('resize',function(){if(slides.length&&!busy)fit()});
+
+  async function fullSize(fn){
+    var prev=stage.style.transform;
+    stage.style.transform='none';vp.style.height='auto';vp.style.overflow='visible';
+    try{return await fn()}finally{vp.style.overflow='';stage.style.transform=prev;fit()}
+  }
+
+  async function load(file){
+    if(!file)return;
+    if(!/\.pptx$/i.test(file.name)){say('Bu dosya .pptx değil. PowerPoint’te “Farklı kaydet → PowerPoint Sunusu (.pptx)” ile kaydet.',true);return}
+    busy=true;go.disabled=true;slides=[];stage.innerHTML='';vp.style.height='0';
+    baseName=file.name.replace(/\.pptx$/i,'');
+    $('#dropTitle').textContent=file.name;
+    say('Slaytlar çiziliyor…');progress(.1);
+    try{
+      var buf=await file.arrayBuffer();
+      var previewer=pptxPreview.init(stage,{width:RENDER_W,mode:'list'});
+      await previewer.preview(buf);
+      if(document.fonts&&document.fonts.ready)await document.fonts.ready;
+      await new Promise(function(r){setTimeout(r,400)});
+      slides=Array.prototype.slice.call(stage.querySelectorAll('.pptx-preview-slide-wrapper'));
+      if(!slides.length)throw new Error('Slayt bulunamadı');
+      fit();
+      say(slides.length+' slayt hazır. Önizlemeyi kontrol edip PDF oluştur’a bas.');
+      go.disabled=false;
+    }catch(e){
+      console.error(e);
+      say('Dosya okunamadı. Parola korumalı ya da bozuk olabilir.',true);
+    }finally{busy=false;progress(null)}
+  }
+
+  async function exportImage(){
+    var q=parseFloat($('#q').value),pdf=null;
+    await fullSize(async function(){
+      for(var i=0;i<slides.length;i++){
+        var el=slides[i],w=el.offsetWidth,h=el.offsetHeight,o=w>=h?'l':'p';
+        say('Slayt '+(i+1)+' / '+slides.length+' aktarılıyor…');progress(i/slides.length);
+        var c=await html2canvas(el,{scale:q,backgroundColor:'#ffffff',useCORS:true,logging:false});
+        var img=c.toDataURL('image/jpeg',0.92);
+        if(!pdf)pdf=new window.jspdf.jsPDF({orientation:o,unit:'px',format:[w,h]});
+        else pdf.addPage([w,h],o);
+        pdf.addImage(img,'JPEG',0,0,w,h,undefined,'FAST');
+        c.width=c.height=0;
+        await new Promise(function(r){setTimeout(r)});
+      }
+    });
+    progress(1);pdf.save(baseName+'.pdf');say('PDF indirildi.');
+  }
+
+  function exportPrint(){
+    var w=slides[0].offsetWidth,h=slides[0].offsetHeight;
+    pageStyle=document.createElement('style');
+    pageStyle.textContent='@page{size:'+w+'px '+h+'px;margin:0}';
+    document.head.appendChild(pageStyle);
+    document.title=baseName;
+    say('Yazdır penceresinde hedefi “PDF olarak kaydet” seç.');
+    window.print();
+  }
+  window.addEventListener('afterprint',function(){
+    if(pageStyle){pageStyle.remove();pageStyle=null}
+    document.title='PPTX → PDF · Kaymadan';
+  });
+
+  go.addEventListener('click',async function(){
+    if(busy||!slides.length)return;
+    busy=true;go.disabled=true;
+    try{
+      if(document.querySelector('input[name=mode]:checked').value==='print')exportPrint();
+      else await exportImage();
+    }catch(e){console.error(e);say('PDF oluşturulamadı. Slayt sayısı çok fazlaysa kaliteyi düşürmeyi dene.',true)}
+    finally{busy=false;go.disabled=false;setTimeout(function(){progress(null)},800)}
+  });
+
+  var input=$('#file'),drop=$('#drop');
+  input.addEventListener('change',function(){load(input.files[0])});
+  ['dragenter','dragover'].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.add('over')})});
+  ['dragleave','drop'].forEach(function(t){drop.addEventListener(t,function(e){e.preventDefault();drop.classList.remove('over')})});
+  drop.addEventListener('drop',function(e){load(e.dataTransfer.files[0])});
+})();
+</script>
+</body>
+</html>
