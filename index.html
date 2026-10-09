@@ -17,9 +17,6 @@ h1{font:600 clamp(2rem,5vw,3.2rem)/1.1 "Iowan Old Style","Palatino Linotype",Geo
 #drop strong{display:block;font-size:1.1rem}
 #file{position:absolute;opacity:0;width:1px;height:1px}
 .row{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;margin:24px 0}
-fieldset{border:0;padding:0;margin:0}
-legend{font-weight:600;margin-bottom:6px;padding:0}
-label.opt{display:flex;gap:8px;align-items:baseline;margin:2px 0;cursor:pointer}
 select{font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
 button{font:inherit;font-weight:600;border:0;border-radius:4px;padding:11px 20px;background:var(--accent);color:var(--accent-ink);cursor:pointer}
 button:disabled{opacity:.45;cursor:not-allowed}
@@ -32,15 +29,6 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
 #stage{transform-origin:0 0}
 #stage .pptx-preview-wrapper{background:transparent!important}
 #stage .pptx-preview-slide-wrapper{box-shadow:0 1px 8px rgba(0,0,0,.18)}
-@media print{
- main>*:not(#viewport){display:none!important}
- html,body{background:#fff}
- main{padding:0;max-width:none}
- #viewport{margin:0;height:auto!important;overflow:visible!important}
- #stage{transform:none!important}
- #stage .pptx-preview-slide-wrapper{margin:0!important;box-shadow:none;break-after:page;page-break-after:always;-webkit-print-color-adjust:exact;print-color-adjust:exact}
- #stage .pptx-preview-slide-wrapper:last-child{break-after:auto;page-break-after:auto}
-}
 </style>
 </head>
 <body>
@@ -53,11 +41,6 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
   </label>
 
   <div class="row">
-    <fieldset>
-      <legend>Tür</legend>
-      <label class="opt"><input type="radio" name="mode" value="image" checked> Görüntü</label>
-      <label class="opt"><input type="radio" name="mode" value="print"> Metin (seçilebilir)</label>
-    </fieldset>
     <div>
       <label for="q" style="display:block;font-weight:600;margin-bottom:6px">Kalite</label>
       <select id="q">
@@ -83,7 +66,7 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
   var RENDER_W = 1280;
   var $ = function(s){return document.querySelector(s)};
   var stage=$('#stage'), vp=$('#viewport'), go=$('#go'), statusEl=$('#status'), bar=$('#bar'), barFill=$('#bar i');
-  var slides=[], baseName='sunum', busy=false, pageStyle=null;
+  var slides=[], baseName='sunum', busy=false;
 
   function say(t,err){statusEl.textContent=t;statusEl.className=err?'err':''}
   function progress(p){bar.style.visibility=p==null?'hidden':'visible';barFill.style.width=(p||0)*100+'%'}
@@ -148,27 +131,12 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
     progress(1);pdf.save(baseName+'.pdf');say('Hazır');
   }
 
-  function exportPrint(){
-    var w=slides[0].offsetWidth,h=slides[0].offsetHeight;
-    pageStyle=document.createElement('style');
-    var wi=(w/96).toFixed(4)+'in',hi=(h/96).toFixed(4)+'in';
-    pageStyle.textContent='@page{size:'+wi+' '+hi+';margin:0}@media print{html,body{width:'+wi+';height:auto!important;overflow:visible!important}#stage .pptx-preview-slide-wrapper{width:'+wi+'!important;height:'+hi+'!important}}';
-    document.head.appendChild(pageStyle);
-    document.title=baseName;
-    say('Hedef: PDF olarak kaydet');
-    window.print();
-  }
-  window.addEventListener('afterprint',function(){
-    if(pageStyle){pageStyle.remove();pageStyle=null}
-    document.title='PPTX → PDF';
-  });
 
   go.addEventListener('click',async function(){
     if(busy||!slides.length)return;
     busy=true;go.disabled=true;
     try{
-      if(document.querySelector('input[name=mode]:checked').value==='print')exportPrint();
-      else await exportImage();
+      await exportImage();
     }catch(e){console.error(e);say('PDF oluşturulamadı. Kaliteyi düşür.',true)}
     finally{busy=false;go.disabled=false;setTimeout(function(){progress(null)},800)}
   });
