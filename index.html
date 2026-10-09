@@ -61,6 +61,7 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
 <script src="vendor/pptx-preview.umd.js"></script>
 <script src="vendor/html2canvas.min.js"></script>
 <script src="vendor/jspdf.umd.min.js"></script>
+<script src="vendor/font.js"></script>
 <script>
 (function(){
   var RENDER_W = 1280;
@@ -113,24 +114,45 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
     }finally{busy=false;progress(null)}
   }
 
+  function addTextLayer(pdf,el){
+    var er=el.getBoundingClientRect(),k=0.75;
+    var walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT),range=document.createRange(),n;
+    while((n=walker.nextNode())){
+      var txt=n.nodeValue,re=/\S+/g,m;
+      while((m=re.exec(txt))){
+        range.setStart(n,m.index);range.setEnd(n,m.index+m[0].length);
+        var r=range.getBoundingClientRect();
+        if(r.width<1||r.height<1)continue;
+        var fs=r.height*k*0.85;
+        pdf.setFontSize(fs);pdf.setCharSpace(0);
+        var tw=pdf.getTextWidth(m[0]);
+        pdf.setCharSpace(m[0].length>1?(r.width*k-tw)/m[0].length:0);
+        pdf.text(m[0],(r.left-er.left)*k,(r.top-er.top+r.height*0.8)*k,{renderingMode:'invisible'});
+      }
+    }
+    pdf.setCharSpace(0);
+  }
+
   async function exportImage(){
-    var q=parseFloat($('#q').value),pdf=null;
+    var q=parseFloat($('#q').value),pdf=null,hasFont=false;
     await fullSize(async function(){
       for(var i=0;i<slides.length;i++){
         var el=slides[i],w=el.offsetWidth,h=el.offsetHeight,o=w>=h?'l':'p',W=w*0.75,H=h*0.75;
         say((i+1)+' / '+slides.length);progress(i/slides.length);
         var c=await html2canvas(el,{scale:q,backgroundColor:'#ffffff',useCORS:true,logging:false});
         var img=c.toDataURL('image/jpeg',0.92);
-        if(!pdf)pdf=new window.jspdf.jsPDF({orientation:o,unit:'pt',format:[W,H]});
-        else pdf.addPage([W,H],o);
+        if(!pdf){
+          pdf=new window.jspdf.jsPDF({orientation:o,unit:'pt',format:[W,H]});
+          try{pdf.addFileToVFS('t.ttf',window.TEXT_FONT_B64);pdf.addFont('t.ttf','T','normal');hasFont=true}catch(e){console.error(e)}
+        }else pdf.addPage([W,H],o);
         pdf.addImage(img,'JPEG',0,0,W,H,undefined,'FAST');
+        if(hasFont){try{pdf.setFont('T','normal');addTextLayer(pdf,el)}catch(e){console.error(e)}}
         c.width=c.height=0;
         await new Promise(function(r){setTimeout(r)});
       }
     });
     progress(1);pdf.save(baseName+'.pdf');say('Hazır');
   }
-
 
   go.addEventListener('click',async function(){
     if(busy||!slides.length)return;
