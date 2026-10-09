@@ -151,7 +151,8 @@ button:focus-visible,select:focus-visible,#file:focus-visible+*{outline:3px soli
   function exportPrint(){
     var w=slides[0].offsetWidth,h=slides[0].offsetHeight;
     pageStyle=document.createElement('style');
-    pageStyle.textContent='@page{size:'+w+'px '+h+'px;margin:0}';
+    var wi=(w/96).toFixed(4)+'in',hi=(h/96).toFixed(4)+'in';
+    pageStyle.textContent='@page{size:'+wi+' '+hi+';margin:0}@media print{html,body{width:'+wi+';height:auto!important;overflow:visible!important}#stage .pptx-preview-slide-wrapper{width:'+wi+'!important;height:'+hi+'!important}}';
     document.head.appendChild(pageStyle);
     document.title=baseName;
     say('Hedef: PDF olarak kaydet');
